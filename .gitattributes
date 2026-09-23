@@ -1,0 +1,2 @@
+# Keep text files consistent across platforms, including Windows checkouts.
+* text=auto eol=lf

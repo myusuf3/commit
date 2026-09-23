@@ -4,7 +4,7 @@ An AI-powered Git commit and GitHub pull request assistant, built as a conventio
 
 ## Install
 
-Requires Go 1.25+ to build and Git at runtime. No GitHub CLI is required.
+Requires Go 1.26+ to build and Git at runtime. No GitHub CLI is required.
 
 ```sh
 go install github.com/myusuf3/commit/cmd/commit@latest
