@@ -1,6 +1,6 @@
 # Contributing
 
-Use Go 1.25+ and Git. Run `make check` and `make build` before submitting changes.
+Use Go 1.26+ and Git. Run `make check` and `make build` before submitting changes.
 
 - Keep `cmd/commit` small: process lifecycle only.
 - Construct commands in `internal/cli`; do not introduce global flag state or call `os.Exit` outside main.

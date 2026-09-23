@@ -14,8 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go: ['1.25.x', 'stable']
+        go: ['1.26.x', 'stable']
     runs-on: ${{ matrix.os }}
+    env:
+      GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
