@@ -1,0 +1,36 @@
+version: 2
+project_name: commit
+
+builds:
+  - id: commit
+    main: ./cmd/commit
+    binary: commit
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+      - .commitrc.example
+
+checksum:
+  name_template: checksums.txt
+
+# Destination is derived from the new checkout's origin, never a fixed owner.
+release:
+  draft: true
+  prerelease: auto
+
+changelog:
+  sort: asc

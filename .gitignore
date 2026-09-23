@@ -2,7 +2,10 @@
 /dist/
 /coverage.out
 /.commitrc
+/.cometrc
 .env
+.env.*
+!.env.example
 *.test
 *.update.lock
 .DS_Store
