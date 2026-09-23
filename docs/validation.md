@@ -1,6 +1,6 @@
 # Local validation before publication
 
-Validated on macOS/arm64 with Go 1.26.7, and the test suite also passed with Go 1.25.13.
+This historical snapshot predates the dependency updates that raised the minimum Go version to 1.26. Initial validation ran on macOS/arm64 with Go 1.26.7, and the original test suite also passed with Go 1.25.13. Current CI checks Go 1.26 and stable without automatic toolchain upgrades.
 
 Passed:
 

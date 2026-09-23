@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -39,8 +38,8 @@ func TestCommandTreeHelper(t *testing.T) {
 		if _, err := conn.Write([]byte{1}); err != nil {
 			t.Fatal(err)
 		}
-		// The child keeps its socket open while blocked here. EOF observed by
-		// the test after cancellation proves the descendant was terminated.
+		// The child keeps its socket open while blocked here. EOF or a native
+		// connection reset after cancellation proves it was terminated.
 		if _, err := conn.Read(make([]byte, 1)); err == nil {
 			if err := os.WriteFile(marker, []byte("unwanted side effect"), 0600); err != nil {
 				t.Fatal(err)
@@ -96,7 +95,7 @@ func checkDescendantCancellation(t *testing.T, timeout bool, run func(context.Co
 	if err := conn.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := conn.Read(make([]byte, 1)); !errors.Is(err, io.EOF) && !errors.Is(err, syscall.ECONNRESET) {
+	if _, err := conn.Read(make([]byte, 1)); !isSocketClosure(err) {
 		t.Fatalf("descendant survived cancellation (expected socket closure): %v", err)
 	}
 	if _, err := os.Stat(marker); !errors.Is(err, os.ErrNotExist) {
@@ -117,6 +116,31 @@ func TestRunCommandKillsDescendants(t *testing.T) {
 				cmd.WaitDelay = time.Second
 				return runCommand(ctx, cmd)
 			})
+		})
+	}
+}
+
+func isSocketClosure(err error) bool {
+	return errors.Is(err, io.EOF) || errors.Is(err, socketResetError)
+}
+
+func TestSocketClosureErrors(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"EOF", io.EOF, true},
+		{"native reset", socketResetError, true},
+		{"wrapped native reset", &net.OpError{Op: "read", Net: "tcp", Err: &os.SyscallError{Syscall: "recv", Err: socketResetError}}, true},
+		{"timeout", &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded}, false},
+		{"other error", errors.New("unrelated failure"), false},
+		{"no error", nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isSocketClosure(tc.err); got != tc.want {
+				t.Fatalf("isSocketClosure(%v) = %v, want %v", tc.err, got, tc.want)
+			}
 		})
 	}
 }
