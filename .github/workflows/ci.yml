@@ -2,6 +2,7 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -25,7 +26,12 @@ jobs:
         run: go mod verify
       - name: Check formatting
         shell: bash
-        run: test -z "$(gofmt -l cmd internal)"
+        run: |
+          unformatted=$(gofmt -l cmd internal)
+          if [ -n "$unformatted" ]; then
+            printf 'Files requiring gofmt:\n%s\n' "$unformatted"
+            exit 1
+          fi
       - run: go vet ./...
       - run: go test -race -count=1 ./...
       - run: go build ./cmd/commit
