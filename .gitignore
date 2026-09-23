@@ -1,0 +1,8 @@
+/bin/
+/dist/
+/coverage.out
+/.commitrc
+.env
+*.test
+*.update.lock
+.DS_Store

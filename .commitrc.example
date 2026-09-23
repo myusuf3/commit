@@ -1,0 +1,23 @@
+# Copy to ~/.config/commit/.commitrc (or use commit init).
+# Prefer environment variables for credentials.
+
+# --- OpenAI (default) ---
+provider = "openai"
+model = "gpt-4o-mini"
+base_url = "https://api.openai.com/v1"
+# api_key = "..."                 # or OPENAI_API_KEY / COMMIT_API_KEY
+
+# --- OpenCode Go ---
+# provider = "opencode-go"
+# model = "kimi-k2.6"             # bare model ID; not opencode-go/<model>
+# base_url = "https://opencode.ai/zen/go/v1"
+# api_key = "..."                 # or OPENCODE_API_KEY / OPENCODE_GO_API_KEY
+# api_format = ""                 # auto: chat-completions | messages | responses
+
+timeout = "60s"
+max_diff_bytes = 100000
+# github_token = "..."            # or GITHUB_TOKEN / COMMIT_GITHUB_TOKEN
+# release_repository = "owner/repo" # configure only after publishing
+
+[conventional]
+type_scope_prefix = true
