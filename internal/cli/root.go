@@ -62,7 +62,7 @@ func NewRoot(opts Options) *cobra.Command {
 	if opts.NewGit == nil {
 		opts.NewGit = func(c config.Config) app.Git {
 			d, _ := c.Duration()
-			return &git.Client{Dir: opts.Dir, MaxDiffBytes: c.MaxDiffBytes, Timeout: d, Output: opts.Err}
+			return &git.Client{Dir: opts.Dir, MaxDiffBytes: c.MaxDiffBytes, Timeout: d, Output: opts.Err, Interactive: opts.Interactive}
 		}
 	}
 	if opts.NewGenerator == nil {

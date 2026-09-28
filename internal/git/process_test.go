@@ -114,7 +114,7 @@ func TestRunCommandKillsDescendants(t *testing.T) {
 			checkDescendantCancellation(t, timeout, func(ctx context.Context, address, marker string) error {
 				cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestCommandTreeHelper$", "--", "parent", address, marker)
 				cmd.WaitDelay = time.Second
-				return runCommand(ctx, cmd)
+				return runCommand(ctx, cmd, false)
 			})
 		})
 	}
@@ -149,7 +149,7 @@ func TestRunCommandAlreadyCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	cmd := exec.CommandContext(ctx, os.Args[0], "-test.run=^$")
-	if err := runCommand(ctx, cmd); !errors.Is(err, context.Canceled) {
+	if err := runCommand(ctx, cmd, false); !errors.Is(err, context.Canceled) {
 		t.Fatalf("error=%v", err)
 	}
 	if cmd.Process != nil {

@@ -15,7 +15,8 @@ import (
 // Start suspended, attach to a non-breakaway Job Object, then resume. Assigning
 // a job after an ordinary Start would race Git spawning uncontained helpers.
 // Job termination and kill-on-close cover the process and its descendants.
-func runCommand(ctx context.Context, cmd *exec.Cmd) error {
+// Console prompts work inside a job, so terminal commands need no special case.
+func runCommand(ctx context.Context, cmd *exec.Cmd, _ bool) error {
 	job, err := windows.CreateJobObject(nil, nil)
 	if err != nil {
 		return fmt.Errorf("create Git process job: %w", err)
