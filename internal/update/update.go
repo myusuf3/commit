@@ -85,7 +85,11 @@ func (c *Client) Check(ctx context.Context, force bool) (*Plan, error) {
 	}
 	var release Release
 	if err := httpapi.JSON(ctx, c.HTTP, "GET", "https://api.github.com/repos/"+c.Repository+"/releases/latest", c.Token, nil, &release); err != nil {
-		return nil, err
+		var status *httpapi.StatusError
+		if errors.As(err, &status) && status.Status == 404 {
+			return nil, fmt.Errorf("no published release found for %s (the repository may be missing, private, or have no releases yet)", c.Repository)
+		}
+		return nil, github.Explain(err, c.Repository, c.HTTP.Timeout)
 	}
 	if release.Draft || release.Prerelease {
 		return nil, errors.New("refusing an unpublished or prerelease update")

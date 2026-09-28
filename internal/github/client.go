@@ -79,7 +79,7 @@ func (c *Client) DefaultBranch(ctx context.Context) (string, error) {
 		FullName      string `json:"full_name"`
 	}
 	if err := httpapi.JSON(ctx, c.HTTP, "GET", c.endpoint(""), c.Token, nil, &repo); err != nil {
-		return "", err
+		return "", c.explain(err)
 	}
 	// GitHub names are case-insensitive, so a remote may say MyUser/Repo for
 	// myuser/repo. Adopt the canonical spelling for later head filters and URL
@@ -98,7 +98,7 @@ func (c *Client) FindPullRequest(ctx context.Context, head, base string) (*app.P
 	query := url.Values{"state": {"open"}, "head": {owner + ":" + head}, "base": {base}, "per_page": {"2"}}
 	var prs []app.PullRequest
 	if err := httpapi.JSON(ctx, c.HTTP, "GET", c.endpoint("/pulls?")+query.Encode(), c.Token, nil, &prs); err != nil {
-		return nil, err
+		return nil, c.explain(err)
 	}
 	if len(prs) == 0 {
 		return nil, nil
@@ -126,7 +126,7 @@ func validPRURL(raw, repository string) bool {
 func (c *Client) save(ctx context.Context, method, path string, payload any) (string, error) {
 	var pr app.PullRequest
 	if err := httpapi.JSON(ctx, c.HTTP, method, c.endpoint(path), c.Token, payload, &pr); err != nil {
-		return "", err
+		return "", c.explain(err)
 	}
 	if !validPRURL(pr.URL, c.Repository) {
 		return "", errors.New("GitHub may have saved the PR but returned no valid URL; check the repository before retrying")

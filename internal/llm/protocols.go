@@ -13,7 +13,7 @@ import (
 func apiError(raw json.RawMessage) bool { return len(raw) > 0 && string(raw) != "null" }
 
 func (c *Client) request(ctx context.Context, path, token string, input, output any, headers http.Header) error {
-	return httpapi.JSON(ctx, c.HTTP, http.MethodPost, strings.TrimRight(c.BaseURL, "/")+path, token, input, output, headers)
+	return c.explain(httpapi.JSON(ctx, c.HTTP, http.MethodPost, strings.TrimRight(c.BaseURL, "/")+path, token, input, output, headers))
 }
 
 type format struct {

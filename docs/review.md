@@ -15,7 +15,7 @@ This is a separate implementation with the same command interface, not an in-pla
 | Manually interpolated secrets into TOML | TOML encoder and exclusive private file creation; no overwrite/symlink following |
 | Organization-specific issue prefixes and duplicated parsing | Centralized parsing for any team key, validation, normalization, deduplication |
 | No HTTP deadlines or request cancellation; unbounded response reads | Per-request timeouts, contexts, bounded bodies, redirect refusal on authenticated APIs |
-| Provider responses parsed without reliable HTTP status handling | Status-specific errors without reflecting provider bodies or keys |
+| Provider responses parsed without reliable HTTP status handling | Status-specific errors naming the service and fix; only safe provider error codes are shown, never provider message text or keys |
 | PR title/body inferred from the first newline | Validated JSON payload; the model cannot supply PR IDs or API metadata |
 | Diff reduction separated file headers from hunks and guessed model token budgets | Fail on a configurable byte limit, preserving complete diffs and file/hunk relationships |
 | External Git diff helpers could execute during preview | `--no-ext-diff --no-textconv --no-color` |
@@ -70,6 +70,7 @@ Reviewing the new implementation again surfaced issues introduced by the redesig
 - **PR JSON robustness:** a reply wrapped in one code fence is unwrapped before strict validation, and OpenAI's own API is asked for `json_object` output. Other compatible servers are not sent `response_format`, since some reject it.
 - **Interrupts:** Ctrl-C/SIGTERM printed `Error: context canceled` and exited 1. They now print `Interrupted.`/`Terminated.` and exit 130/143, preserving extra context (for example after a push), and a second Ctrl-C exits immediately.
 - **Silent upstream change:** every push used `-u`, carried over from the initial implementation without a stated reason (it is the common first-push idiom). It silently replaced deliberate upstreams, such as `origin/main` on a branch created with `--track` or from `origin/main` (the default `branch.autoSetupMerge` behavior), changing what `git pull` and `git status` compare against. Now `--set-upstream` is passed only when the branch has no upstream, the plan discloses it (or notes that an existing upstream is kept), and a changed upstream between review and apply aborts.
+- **HTTP error guidance:** errors read `API returned HTTP 401` without saying whether the provider or GitHub failed. OpenAI's `insufficient_quota` 429 was labeled "rate limited, try again later", and 404s, redirects (renamed repositories), and timeouts were vague or reported as connectivity problems. Errors are now typed in `httpapi` and explained per adapter with the service, host, safe error code, and fix. GitHub's own sanitized, bounded message is shown. Provider message text is still never reflected.
 - **Test isolation:** CLI configuration tests now unset all provider/config environment variables with cleanup restoring their original values and presence. A private default config directory prevents reading the developer's configuration. Tests also run under deliberately conflicting dummy environment values.
 
 ## Compatibility
