@@ -18,6 +18,9 @@ func (s *commandState) line(prompt string) (string, error) {
 	}
 	line, err := s.readInput(func() (string, error) { return s.reader.ReadString('\n') })
 	if err != nil {
+		if s.ctx.Err() != nil {
+			return "", s.ctx.Err() // Interrupted; main reports it.
+		}
 		if errors.Is(err, io.EOF) {
 			return "", errors.New("input closed; operation cancelled")
 		}
@@ -41,6 +44,9 @@ func (s *commandState) secret(prompt string) (string, error) {
 			return string(value), err
 		})
 		fmt.Fprintln(s.opts.Err)
+		if s.ctx.Err() != nil {
+			return "", s.ctx.Err()
+		}
 		if err != nil {
 			return "", errors.New("unable to read secret; operation cancelled")
 		}
