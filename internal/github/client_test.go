@@ -92,3 +92,53 @@ func TestAmbiguousOrMalformedPRs(t *testing.T) {
 		s.Close()
 	}
 }
+
+func TestCanonicalRepositoryCase(t *testing.T) {
+	t.Parallel()
+	var head string
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/repos/MyUser/Repo" && r.Method == "GET":
+			_, _ = w.Write([]byte(`{"default_branch":"main","full_name":"myuser/repo"}`))
+		case r.URL.Path == "/repos/myuser/repo/pulls" && r.Method == "GET":
+			head = r.URL.Query().Get("head")
+			_, _ = w.Write([]byte(`[]`))
+		case r.URL.Path == "/repos/myuser/repo/pulls" && r.Method == "POST":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = w.Write([]byte(`{"number":1,"html_url":"https://github.com/myuser/repo/pull/1"}`))
+		default:
+			t.Errorf("unexpected %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer s.Close()
+	repo, err := ParseRemote("git@github.com:MyUser/Repo.git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := &Client{HTTP: s.Client(), Repository: repo, BaseURL: s.URL}
+	ctx := context.Background()
+	if _, err := c.DefaultBranch(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if pr, err := c.FindPullRequest(ctx, "feature", "main"); err != nil || pr != nil || head != "myuser:feature" {
+		t.Fatalf("find pr=%v err=%v head=%q", pr, err, head)
+	}
+	if url, err := c.CreatePullRequest(ctx, "feature", "main", app.PullRequest{Title: "t", Body: "b"}, false); err != nil || url != "https://github.com/myuser/repo/pull/1" {
+		t.Fatalf("create url=%q err=%v", url, err)
+	}
+}
+
+func TestValidPRURL(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{"https://github.com/person/repo/pull/3", "https://github.com/Person/REPO/pull/3"} {
+		if !validPRURL(raw, "person/repo") {
+			t.Fatalf("rejected %q", raw)
+		}
+	}
+	for _, raw := range []string{"https://github.com/person/repo/pull/", "https://github.com/person/repo/pull/3/files", "https://github.com/person/repo/issues/3", "https://github.com/person/repo2/pull/3", "https://github.com/other/repo/pull/3", "http://github.com/person/repo/pull/3", "https://github.com.evil/person/repo/pull/3", "https://github.com/person/repo/pull/3?x=1", "https://github.com/person/repo/pull/0"} {
+		if validPRURL(raw, "person/repo") {
+			t.Fatalf("accepted %q", raw)
+		}
+	}
+}

@@ -15,6 +15,7 @@ import (
 )
 
 var namePattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+var numberPattern = regexp.MustCompile(`^[1-9][0-9]*$`)
 
 func ValidateRepository(repository string) error {
 	parts := strings.Split(repository, "/")
@@ -75,9 +76,16 @@ func (c *Client) endpoint(path string) string {
 func (c *Client) DefaultBranch(ctx context.Context) (string, error) {
 	var repo struct {
 		DefaultBranch string `json:"default_branch"`
+		FullName      string `json:"full_name"`
 	}
 	if err := httpapi.JSON(ctx, c.HTTP, "GET", c.endpoint(""), c.Token, nil, &repo); err != nil {
 		return "", err
+	}
+	// GitHub names are case-insensitive, so a remote may say MyUser/Repo for
+	// myuser/repo. Adopt the canonical spelling for later head filters and URL
+	// checks, but only when it names the same repository.
+	if strings.EqualFold(repo.FullName, c.Repository) && ValidateRepository(repo.FullName) == nil {
+		c.Repository = repo.FullName
 	}
 	if repo.DefaultBranch == "" {
 		return "", errors.New("GitHub returned no default branch")
@@ -104,9 +112,15 @@ func (c *Client) FindPullRequest(ctx context.Context, head, base string) (*app.P
 	return &prs[0], nil
 }
 
+// validPRURL requires https://github.com/<owner>/<name>/pull/<number> for the
+// configured repository. Owner and name compare case-insensitively like GitHub.
 func validPRURL(raw, repository string) bool {
 	u, err := url.Parse(raw)
-	return err == nil && u.Scheme == "https" && u.Host == "github.com" && u.User == nil && u.RawQuery == "" && u.Fragment == "" && strings.HasPrefix(u.Path, "/"+repository+"/pull/")
+	if err != nil || u.Scheme != "https" || u.Host != "github.com" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.RawPath != "" {
+		return false
+	}
+	parts := strings.Split(strings.TrimPrefix(u.Path, "/"), "/")
+	return len(parts) == 4 && strings.EqualFold(parts[0]+"/"+parts[1], repository) && parts[2] == "pull" && numberPattern.MatchString(parts[3])
 }
 
 func (c *Client) save(ctx context.Context, method, path string, payload any) (string, error) {
