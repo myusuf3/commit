@@ -16,11 +16,23 @@ func (c *Client) request(ctx context.Context, path, token string, input, output 
 	return httpapi.JSON(ctx, c.HTTP, http.MethodPost, strings.TrimRight(c.BaseURL, "/")+path, token, input, output, headers)
 }
 
-func (c *Client) chat(ctx context.Context, system, diff string, headers http.Header) (string, error) {
+type format struct {
+	Type string `json:"type"`
+}
+
+func jsonFormat(enabled bool) *format {
+	if !enabled {
+		return nil
+	}
+	return &format{"json_object"}
+}
+
+func (c *Client) chat(ctx context.Context, system, diff string, headers http.Header, jsonOutput bool) (string, error) {
 	request := struct {
-		Model    string    `json:"model"`
-		Messages []message `json:"messages"`
-	}{c.Model, []message{{"system", system}, {"user", diff}}}
+		Model          string    `json:"model"`
+		Messages       []message `json:"messages"`
+		ResponseFormat *format   `json:"response_format,omitempty"`
+	}{c.Model, []message{{"system", system}, {"user", diff}}, jsonFormat(jsonOutput)}
 	var response struct {
 		Choices []struct {
 			Message      message `json:"message"`
@@ -85,14 +97,22 @@ func (c *Client) messages(ctx context.Context, system, diff string, headers http
 	return text.String(), nil
 }
 
-func (c *Client) responses(ctx context.Context, system, diff string, headers http.Header) (string, error) {
+func (c *Client) responses(ctx context.Context, system, diff string, headers http.Header, jsonOutput bool) (string, error) {
+	type textOptions struct {
+		Format *format `json:"format"`
+	}
+	var options *textOptions
+	if jsonOutput {
+		options = &textOptions{jsonFormat(true)}
+	}
 	request := struct {
-		Model           string    `json:"model"`
-		Instructions    string    `json:"instructions"`
-		Input           []message `json:"input"`
-		Store           bool      `json:"store"`
-		MaxOutputTokens int       `json:"max_output_tokens"`
-	}{c.Model, system, []message{{"user", diff}}, false, 8192}
+		Model           string       `json:"model"`
+		Instructions    string       `json:"instructions"`
+		Input           []message    `json:"input"`
+		Store           bool         `json:"store"`
+		MaxOutputTokens int          `json:"max_output_tokens"`
+		Text            *textOptions `json:"text,omitempty"`
+	}{c.Model, system, []message{{"user", diff}}, false, 8192, options}
 	var response struct {
 		Status string `json:"status"`
 		Output []struct {

@@ -68,7 +68,7 @@ func NewRoot(opts Options) *cobra.Command {
 	if opts.NewGenerator == nil {
 		opts.NewGenerator = func(c config.Config) app.Generator {
 			d, _ := c.Duration()
-			return &llm.Client{HTTP: httpapi.NewClient(d), BaseURL: c.BaseURL, APIKey: c.APIKey, Model: c.Model, Provider: c.Provider, APIFormat: c.WireFormat(), Conventional: c.Conventional.TypeScopePrefix}
+			return &llm.Client{HTTP: httpapi.NewClient(d), BaseURL: c.BaseURL, APIKey: c.APIKey, Model: c.Model, Provider: c.Provider, APIFormat: c.WireFormat(), Conventional: c.Conventional.TypeScopePrefix, JSONMode: c.OfficialOpenAI()}
 		}
 	}
 	if opts.NewHosting == nil {

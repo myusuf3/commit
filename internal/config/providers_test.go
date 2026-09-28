@@ -163,3 +163,23 @@ func TestOpenCodeOverridesAndValidation(t *testing.T) {
 		t.Fatal("qualified model ID accepted")
 	}
 }
+
+func TestOfficialOpenAI(t *testing.T) {
+	for _, tc := range []struct {
+		provider, url string
+		want          bool
+	}{
+		{"openai", "https://api.openai.com/v1", true},
+		{"openai", "https://API.OpenAI.com/v1/", true},
+		{"openai", "http://localhost:1234/v1", false},
+		{"openai", "https://api.openai.com.evil.example/v1", false},
+		{"opencode-go", "https://api.openai.com/v1", false},
+		{"opencode-go", "https://opencode.ai/zen/go/v1", false},
+	} {
+		c := Default()
+		c.Provider, c.BaseURL = tc.provider, tc.url
+		if got := c.OfficialOpenAI(); got != tc.want {
+			t.Fatalf("%s %s: got %v", tc.provider, tc.url, got)
+		}
+	}
+}

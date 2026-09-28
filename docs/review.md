@@ -67,6 +67,7 @@ Reviewing the new implementation again surfaced issues introduced by the redesig
 - **Issue extraction:** a case-insensitive pattern treated prose such as "Fixes utf-8 decoding" as issue `UTF-8`. `#N` references still match anywhere; team keys must be uppercase on their own line.
 - **Unknown commands:** a root `NoArgs` validator made `commit comit` print help and exit 0. Removing it lets Cobra report `unknown command` with suggestions and exit 1.
 - **Check before sending/prompting:** workflows are split into read-only inspection and generation. "Generating…" is printed, and the PR issue prompt shown, only after local and GitHub checks pass, so a user never types issues or sees a send notice for a run that fails on a missing branch, base ref, or staged change.
+- **PR JSON robustness:** a reply wrapped in one code fence is unwrapped before strict validation, and OpenAI's own API is asked for `json_object` output. Other compatible servers are not sent `response_format`, since some reject it.
 - **Test isolation:** CLI configuration tests now unset all provider/config environment variables with cleanup restoring their original values and presence. A private default config directory prevents reading the developer's configuration. Tests also run under deliberately conflicting dummy environment values.
 
 ## Compatibility

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/url"
 	"os"
 	"strings"
 )
@@ -35,6 +36,13 @@ func APIKeyFromEnv(provider string) (string, bool) {
 		}
 	}
 	return key, found
+}
+
+// OfficialOpenAI reports whether requests go to OpenAI's own API, which is
+// known to support JSON response formats. Compatible servers may not.
+func (c Config) OfficialOpenAI() bool {
+	u, err := url.Parse(c.BaseURL)
+	return err == nil && c.Provider == "openai" && u.Scheme == "https" && strings.EqualFold(u.Hostname(), "api.openai.com")
 }
 
 // WireFormat follows OpenCode Go's documented model families. An explicit

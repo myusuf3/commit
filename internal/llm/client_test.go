@@ -148,3 +148,49 @@ func TestProviderErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestUnfence(t *testing.T) {
+	for in, want := range map[string]string{
+		"```json\n{\"title\":\"a\"}\n```":   `{"title":"a"}`,
+		"```\nfeat: add thing\n\nbody\n```": "feat: add thing\n\nbody",
+		"```fix: hi```":                     "```fix: hi```",
+		"```json {\"a\":1}\n```":            "```json {\"a\":1}\n```",
+		"```\nfeat: x\n```\n```\ny\n```":    "```\nfeat: x\n```\n```\ny\n```",
+		"feat: plain":                       "feat: plain",
+	} {
+		if got := unfence(in); got != want {
+			t.Fatalf("unfence(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestFencedPRJSONAndJSONMode(t *testing.T) {
+	t.Parallel()
+	for _, format := range []string{"chat-completions", "responses"} {
+		for _, jsonMode := range []bool{false, true} {
+			var requested bool
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var req map[string]any
+				_ = json.NewDecoder(r.Body).Decode(&req)
+				_, chatFormat := req["response_format"]
+				_, responsesFormat := req["text"]
+				requested = chatFormat || responsesFormat
+				text := "```json\n{\"title\":\"Add a thing\",\"body\":\"Summary\"}\n```"
+				if format == "responses" {
+					_ = json.NewEncoder(w).Encode(map[string]any{"status": "completed", "output": []any{map[string]any{"type": "message", "role": "assistant", "status": "completed", "content": []any{map[string]any{"type": "output_text", "text": text}}}}})
+					return
+				}
+				_ = json.NewEncoder(w).Encode(map[string]any{"choices": []any{map[string]any{"message": message{Content: text}, "finish_reason": "stop"}}})
+			}))
+			c := &Client{HTTP: s.Client(), BaseURL: s.URL, APIFormat: format, JSONMode: jsonMode}
+			pr, err := c.PullRequest(context.Background(), "diff")
+			s.Close()
+			if err != nil || pr.Title != "Add a thing" || pr.Body != "Summary" {
+				t.Fatalf("%s: pr=%+v err=%v", format, pr, err)
+			}
+			if requested != jsonMode {
+				t.Fatalf("%s: JSON format requested=%v with JSONMode=%v", format, requested, jsonMode)
+			}
+		}
+	}
+}
