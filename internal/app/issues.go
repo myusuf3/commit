@@ -7,7 +7,13 @@ import (
 )
 
 var issuePattern = regexp.MustCompile(`^(?:[1-9][0-9]*|[A-Z][A-Z0-9]*-[1-9][0-9]*)$`)
-var closingPattern = regexp.MustCompile(`(?i)\b(?:fix(?:es|ed)?|close(?:s|d)?|resolve(?:s|d)?|linear:)\s+(#[1-9][0-9]*|[A-Z][A-Z0-9]*-[1-9][0-9]*)\b`)
+
+// closingPattern recognizes issue-closing links. GitHub references ("fixes #12")
+// are unambiguous anywhere. Team keys must be uppercase and on their own line
+// (optionally a list item), which is how LinkIssues writes them: otherwise
+// ordinary prose such as "Fixes UTF-8 decoding" would be mistaken for issues.
+// Only the keyword is case-insensitive.
+var closingPattern = regexp.MustCompile(`(?m)\b(?i:fix(?:es|ed)?|close[sd]?|resolve[sd]?)[ \t]+#([1-9][0-9]*)\b|^[ \t]*(?:[-*+][ \t]+)?(?i:fix(?:es|ed)?|close[sd]?|resolve[sd]?|linear:)[ \t]+([A-Z][A-Z0-9]*-[1-9][0-9]*)[ \t]*\.?[ \t]*$`)
 
 // ParseIssues supports GitHub numbers and arbitrary Linear team keys.
 func ParseIssues(values []string) ([]string, error) {
@@ -31,7 +37,7 @@ func ParseIssues(values []string) ([]string, error) {
 func ExtractIssues(body string) []string {
 	var values []string
 	for _, match := range closingPattern.FindAllStringSubmatch(body, -1) {
-		values = append(values, match[1])
+		values = append(values, match[1]+match[2])
 	}
 	issues, _ := ParseIssues(values)
 	return issues

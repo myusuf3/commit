@@ -210,11 +210,24 @@ func TestIssues(t *testing.T) {
 			t.Fatalf("accepted %q", value)
 		}
 	}
-	body := "Fixes #12\nresolves team-34\nlinear: OPS2-5"
+	body := "Fixes #12\nresolves TEAM-34\nlinear: OPS2-5"
 	if got := ExtractIssues(body); !reflect.DeepEqual(got, []string{"12", "TEAM-34", "OPS2-5"}) {
 		t.Fatalf("extracted %v", got)
 	}
 	if linked := LinkIssues(body, []string{"12", "TEAM-34", "OPS2-5"}); linked != body {
 		t.Fatal("duplicated closing lines")
+	}
+}
+
+func TestExtractIssuesIgnoresProse(t *testing.T) {
+	body := "## Changes\n- Fixes utf-8 decoding of paths\n- Resolves SHA-256 mismatch in checksums\nThis closes the gap for utf-16.\n" +
+		"It also fixes #7 when retrying.\n\n- Closes ENG-9\n\nFixes #12\n\nCloses TEAM-34."
+	if got := ExtractIssues(body); !reflect.DeepEqual(got, []string{"7", "ENG-9", "12", "TEAM-34"}) {
+		t.Fatalf("extracted %v", got)
+	}
+	// Links written by LinkIssues must always round-trip.
+	issues := []string{"123", "TEAM-456"}
+	if got := ExtractIssues(LinkIssues("Summary", issues)); !reflect.DeepEqual(got, issues) {
+		t.Fatalf("round trip %v", got)
 	}
 }
