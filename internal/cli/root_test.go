@@ -16,7 +16,7 @@ import (
 
 type fixtures struct {
 	pushes, commits, creates, updates, calls int
-	remoteHead                               string
+	remoteHead, upstream                     string
 	existing                                 *app.PullRequest
 	generationErr, inspectErr                error
 	generations                              int
@@ -35,7 +35,12 @@ func (f *fixtures) RemoteURL(context.Context) (string, error) {
 }
 func (f *fixtures) BranchDiff(context.Context, string) (string, error) { return "diff", f.inspectErr }
 func (f *fixtures) RemoteHead(context.Context, string) (string, error) { return f.remoteHead, nil }
-func (f *fixtures) Push(context.Context, string) error                 { f.pushes++; f.remoteHead = "head"; return nil }
+func (f *fixtures) Upstream(context.Context, string) (string, error)   { return f.upstream, nil }
+func (f *fixtures) Push(context.Context, string, bool) error {
+	f.pushes++
+	f.remoteHead = "head"
+	return nil
+}
 func (f *fixtures) CommitMessage(context.Context, string) (string, error) {
 	f.generations++
 	return "feat: change", f.generationErr
@@ -253,5 +258,24 @@ func TestIssuePromptShowsKeptLinksAndRetriesInvalidInput(t *testing.T) {
 	}
 	if strings.Index(stderr.String(), "Related issues") > strings.Index(stderr.String(), "Generating") {
 		t.Fatal("prompted after generation started")
+	}
+}
+
+func TestPlanDisclosesUpstreamChanges(t *testing.T) {
+	for _, tc := range []struct{ upstream, want, avoid string }{
+		{"", "Push branch to origin, set origin/feature as its upstream, and create pull request", "keeps its configured upstream"},
+		{"origin/main", "The branch keeps its configured upstream origin/main.", "as its upstream,"},
+		{"origin/feature", "Push branch to origin and create pull request", "upstream"},
+	} {
+		f := &fixtures{upstream: tc.upstream}
+		var stderr bytes.Buffer
+		root := NewRoot(options(f, "", false, io.Discard, &stderr))
+		root.SetArgs([]string{"pr", "--dry-run"})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(stderr.String(), tc.want) || strings.Contains(stderr.String(), tc.avoid) {
+			t.Fatalf("upstream %q: stderr=%q", tc.upstream, stderr.String())
+		}
 	}
 }

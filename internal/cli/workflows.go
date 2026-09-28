@@ -159,9 +159,16 @@ func (s *commandState) prCommand() *cobra.Command {
 				}
 			}
 			if plan.NeedsPush {
-				action = "Push branch to origin and " + strings.ToLower(action)
+				push := "Push branch to origin"
+				if plan.SetUpstream {
+					push += ", set origin/" + plan.Branch + " as its upstream,"
+				}
+				action = push + " and " + strings.ToLower(action)
 			}
 			fmt.Fprintf(s.opts.Err, "Plan: %s (%s -> %s).\n", action, plan.Branch, plan.Base)
+			if plan.NeedsPush && !plan.SetUpstream && plan.Upstream != "origin/"+plan.Branch {
+				fmt.Fprintf(s.opts.Err, "The branch keeps its configured upstream %s.\n", plan.Upstream)
+			}
 			if dryRun {
 				return nil
 			}

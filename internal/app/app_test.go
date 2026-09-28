@@ -9,9 +9,10 @@ import (
 )
 
 type fakeGit struct {
-	diff, head, branch, remoteHead, remote string
-	pushes, commits                        int
-	err                                    error
+	diff, head, branch, remoteHead, remote, upstream string
+	pushes, commits                                  int
+	setUpstream                                      bool
+	err                                              error
 }
 
 func newGit() *fakeGit {
@@ -30,8 +31,10 @@ func (g *fakeGit) Branch(context.Context) (string, error)             { return g
 func (g *fakeGit) RemoteURL(context.Context) (string, error)          { return g.remote, g.err }
 func (g *fakeGit) BranchDiff(context.Context, string) (string, error) { return g.diff, g.err }
 func (g *fakeGit) RemoteHead(context.Context, string) (string, error) { return g.remoteHead, g.err }
-func (g *fakeGit) Push(context.Context, string) error {
+func (g *fakeGit) Upstream(context.Context, string) (string, error)   { return g.upstream, g.err }
+func (g *fakeGit) Push(_ context.Context, _ string, setUpstream bool) error {
 	g.pushes++
+	g.setUpstream = setUpstream
 	g.remoteHead = g.head
 	return g.err
 }
@@ -229,5 +232,50 @@ func TestExtractIssuesIgnoresProse(t *testing.T) {
 	issues := []string{"123", "TEAM-456"}
 	if got := ExtractIssues(LinkIssues("Summary", issues)); !reflect.DeepEqual(got, issues) {
 		t.Fatalf("round trip %v", got)
+	}
+}
+
+func TestPRSetsUpstreamOnlyWhenMissing(t *testing.T) {
+	for _, tc := range []struct {
+		name, upstream, remoteHead string
+		want                       bool
+	}{
+		{"no upstream", "", "", true},
+		{"existing upstream", "origin/main", "", false},
+		{"already pushed", "", "head", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := newGit()
+			g.upstream, g.remoteHead = tc.upstream, tc.remoteHead
+			h := &fakeHosting{}
+			s := Service{Git: g, Generator: fakeGenerator{}}
+			p, err := s.PreparePR(context.Background(), h, nil, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if p.SetUpstream != tc.want || p.Upstream != tc.upstream {
+				t.Fatalf("plan=%+v", p)
+			}
+			if _, err := s.ApplyPR(context.Background(), h, p); err != nil {
+				t.Fatal(err)
+			}
+			if g.setUpstream != tc.want {
+				t.Fatalf("push setUpstream=%v", g.setUpstream)
+			}
+		})
+	}
+}
+
+func TestPRRejectsUpstreamChangedAfterReview(t *testing.T) {
+	g := newGit()
+	h := &fakeHosting{}
+	s := Service{Git: g, Generator: fakeGenerator{}}
+	p, err := s.PreparePR(context.Background(), h, nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.upstream = "origin/elsewhere"
+	if _, err := s.ApplyPR(context.Background(), h, p); err == nil || g.pushes != 0 {
+		t.Fatalf("applied with changed upstream: err=%v pushes=%d", err, g.pushes)
 	}
 }

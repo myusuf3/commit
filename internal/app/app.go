@@ -27,7 +27,10 @@ type Git interface {
 	RemoteURL(context.Context) (string, error)
 	BranchDiff(context.Context, string) (string, error)
 	RemoteHead(context.Context, string) (string, error)
-	Push(context.Context, string) error
+	// Upstream returns the branch's configured upstream, or empty for none.
+	Upstream(context.Context, string) (string, error)
+	// Push publishes the branch; the bool also sets origin/<branch> as upstream.
+	Push(context.Context, string, bool) error
 }
 
 type Generator interface {
@@ -112,7 +115,13 @@ type PRPlan struct {
 	Branch    string
 	Base      string
 	NeedsPush bool
-	Draft     bool
+	// Upstream is the branch's configured upstream at inspection, if any.
+	Upstream string
+	// SetUpstream records origin/<branch> as the upstream during the push. It
+	// is set only when a push is needed and no upstream is configured, so a
+	// deliberate existing upstream (for example origin/main) is never replaced.
+	SetUpstream bool
+	Draft       bool
 	// Existing is the open pull request that will be updated, if any.
 	Existing *PullRequest
 	head     string
@@ -175,6 +184,11 @@ func (s Service) InspectPR(ctx context.Context, host Hosting) (PRPlan, error) {
 		return p, err
 	}
 	p.NeedsPush = remoteHead != p.head
+	p.Upstream, err = s.Git.Upstream(ctx, p.Branch)
+	if err != nil {
+		return p, err
+	}
+	p.SetUpstream = p.NeedsPush && p.Upstream == ""
 	return p, nil
 }
 
@@ -218,11 +232,15 @@ func (s Service) ApplyPR(ctx context.Context, host Hosting, p PRPlan) (string, e
 	if err != nil {
 		return "", err
 	}
-	if branch != p.Branch || head != p.head || remote != p.remote {
-		return "", errors.New("branch, HEAD, or origin changed; run the command again")
+	upstream, err := s.Git.Upstream(ctx, p.Branch)
+	if err != nil {
+		return "", err
+	}
+	if branch != p.Branch || head != p.head || remote != p.remote || upstream != p.Upstream {
+		return "", errors.New("branch, HEAD, origin, or upstream changed; run the command again")
 	}
 	if p.NeedsPush {
-		if err := s.Git.Push(ctx, p.Branch); err != nil {
+		if err := s.Git.Push(ctx, p.Branch, p.SetUpstream); err != nil {
 			return "", err
 		}
 	}

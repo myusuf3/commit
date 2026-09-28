@@ -322,7 +322,32 @@ func (c *Client) RemoteHead(ctx context.Context, branch string) (string, error) 
 	return fields[0], nil
 }
 
-func (c *Client) Push(ctx context.Context, branch string) error {
+// Upstream returns the branch's configured upstream (for example "origin/main",
+// or "main" for a local upstream), or empty when none is configured. A
+// configured upstream whose remote branch no longer exists is still reported.
+func (c *Client) Upstream(ctx context.Context, branch string) (string, error) {
+	if err := c.validateBranch(ctx, branch); err != nil {
+		return "", err
+	}
+	ref := "refs/heads/" + branch
+	// for-each-ref patterns are prefix matches (refs/heads/a also matches
+	// refs/heads/a/b), so select the exact ref rather than trusting one line.
+	out, err := c.run(ctx, 1<<20, "for-each-ref", "--format=%(refname)%00%(upstream:short)", ref)
+	if err != nil {
+		return "", err
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if name, upstream, ok := strings.Cut(line, "\x00"); ok && name == ref {
+			return upstream, nil
+		}
+	}
+	return "", nil
+}
+
+// Push publishes HEAD to origin's same-named branch. setUpstream records that
+// branch as the upstream; callers pass it only when none is configured and the
+// user has seen that in the plan, so an existing upstream is never replaced.
+func (c *Client) Push(ctx context.Context, branch string, setUpstream bool) error {
 	if err := c.validateBranch(ctx, branch); err != nil {
 		return err
 	}
@@ -343,7 +368,10 @@ func (c *Client) Push(ctx context.Context, branch string) error {
 		// assume no terminal and hide progress for a potentially long transfer.
 		args = append(args, "--progress")
 	}
-	args = append(args, "-u", "origin", "HEAD:refs/heads/"+branch)
+	if setUpstream {
+		args = append(args, "--set-upstream")
+	}
+	args = append(args, "origin", "HEAD:refs/heads/"+branch)
 	_, err = c.exec(ctx, spec{args: args, limit: 8192, timeout: longCommandTimeout, terminal: true, stream: true})
 	if err != nil {
 		return fmt.Errorf("push failed; inspect 'git push origin' manually: %w", err)

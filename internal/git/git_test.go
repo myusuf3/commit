@@ -159,8 +159,14 @@ func TestBranchDiffAndPush(t *testing.T) {
 	if remote, err := c.RemoteHead(ctx, "feature/unicode-é"); err != nil || remote != "" {
 		t.Fatalf("remote=%q err=%v", remote, err)
 	}
-	if err := c.Push(ctx, "feature/unicode-é"); err != nil {
+	if upstream, err := c.Upstream(ctx, "feature/unicode-é"); err != nil || upstream != "" {
+		t.Fatalf("upstream=%q err=%v", upstream, err)
+	}
+	if err := c.Push(ctx, "feature/unicode-é", true); err != nil {
 		t.Fatal(err)
+	}
+	if upstream, err := c.Upstream(ctx, "feature/unicode-é"); err != nil || upstream != "origin/feature/unicode-é" {
+		t.Fatalf("upstream after push=%q err=%v", upstream, err)
 	}
 	remote, err := c.RemoteHead(ctx, "feature/unicode-é")
 	head, _ := c.Head(ctx)
@@ -173,11 +179,44 @@ func TestBranchDiffAndPush(t *testing.T) {
 		}
 	}
 	command(t, dir, "remote", "set-url", "--push", "origin", t.TempDir())
-	if err := c.Push(ctx, "feature/unicode-é"); err == nil {
+	if err := c.Push(ctx, "feature/unicode-é", false); err == nil {
 		t.Fatal("pushed to different destination")
 	}
 	command(t, dir, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "missing"))
 	if _, err := c.RemoteHead(ctx, "main"); err == nil {
 		t.Fatal("network/repo error treated as missing branch")
+	}
+}
+
+// A branch created with --track (or from origin/main with the default
+// branch.autoSetupMerge) has a deliberate upstream that a push must not replace.
+func TestPushPreservesExistingUpstream(t *testing.T) {
+	dir := repository(t)
+	bare := t.TempDir()
+	command(t, bare, "init", "--bare")
+	stage(t, dir, "base\n")
+	command(t, dir, "commit", "-m", "base")
+	command(t, dir, "remote", "add", "origin", bare)
+	command(t, dir, "push", "origin", "main")
+	command(t, dir, "fetch", "origin")
+	command(t, dir, "switch", "-c", "work", "--track", "origin/main")
+	c := &Client{Dir: dir}
+	ctx := context.Background()
+	if upstream, err := c.Upstream(ctx, "work"); err != nil || upstream != "origin/main" {
+		t.Fatalf("upstream=%q err=%v", upstream, err)
+	}
+	if upstream, err := c.Upstream(ctx, "missing"); err != nil || upstream != "" {
+		t.Fatalf("missing branch upstream=%q err=%v", upstream, err)
+	}
+	stage(t, dir, "work\n")
+	command(t, dir, "commit", "-m", "work")
+	if err := c.Push(ctx, "work", false); err != nil {
+		t.Fatal(err)
+	}
+	if upstream, err := c.Upstream(ctx, "work"); err != nil || upstream != "origin/main" {
+		t.Fatalf("push replaced upstream: %q %v", upstream, err)
+	}
+	if remote, err := c.RemoteHead(ctx, "work"); err != nil || remote == "" {
+		t.Fatalf("branch not pushed: %q %v", remote, err)
 	}
 }
