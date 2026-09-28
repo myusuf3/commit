@@ -196,3 +196,17 @@ func TestGenerationFailureNeverPushes(t *testing.T) {
 		t.Fatal("pushed before generating successfully")
 	}
 }
+
+func TestUnknownCommandFails(t *testing.T) {
+	var stderr bytes.Buffer
+	root := NewRoot(Options{Out: io.Discard, Err: &stderr})
+	root.SetArgs([]string{"comit"})
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), `unknown command "comit"`) {
+		t.Fatalf("err=%v", err)
+	}
+	root = NewRoot(Options{Out: io.Discard, Err: io.Discard})
+	root.SetArgs(nil)
+	if err := root.Execute(); err != nil {
+		t.Fatalf("bare command: %v", err)
+	}
+}

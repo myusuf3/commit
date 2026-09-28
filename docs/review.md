@@ -65,6 +65,7 @@ Reviewing the new implementation again surfaced issues introduced by the redesig
 - **Commit timeout:** `git commit` shared the 60s per-command timeout, killing slow hooks or signing mid-way. Commits now use the 15-minute long-command bound.
 - **Repository case:** PR URLs were compared case-sensitively against the remote path, so `MyUser/Repo` remotes created a PR and then reported failure (and later runs failed). The canonical `full_name` is adopted from the repository response and URL validation is case-insensitive and exact (`/owner/name/pull/N`).
 - **Issue extraction:** a case-insensitive pattern treated prose such as "Fixes utf-8 decoding" as issue `UTF-8`. `#N` references still match anywhere; team keys must be uppercase on their own line.
+- **Unknown commands:** a root `NoArgs` validator made `commit comit` print help and exit 0. Removing it lets Cobra report `unknown command` with suggestions and exit 1.
 - **Test isolation:** CLI configuration tests now unset all provider/config environment variables with cleanup restoring their original values and presence. A private default config directory prevents reading the developer's configuration. Tests also run under deliberately conflicting dummy environment values.
 
 ## Compatibility

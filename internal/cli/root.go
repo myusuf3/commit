@@ -88,7 +88,8 @@ func NewRoot(opts Options) *cobra.Command {
 	root := &cobra.Command{
 		Use: "commit", Short: "AI-powered Git commit and pull request assistant",
 		SilenceErrors: true, SilenceUsage: true, Version: opts.Build.Version,
-		Args: cobra.NoArgs,
+		// No Args validator: Cobra then reports unknown subcommands as errors
+		// (with suggestions) instead of printing help and exiting successfully.
 	}
 	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		s.ctx = cmd.Context()
