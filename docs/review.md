@@ -66,6 +66,7 @@ Reviewing the new implementation again surfaced issues introduced by the redesig
 - **Repository case:** PR URLs were compared case-sensitively against the remote path, so `MyUser/Repo` remotes created a PR and then reported failure (and later runs failed). The canonical `full_name` is adopted from the repository response and URL validation is case-insensitive and exact (`/owner/name/pull/N`).
 - **Issue extraction:** a case-insensitive pattern treated prose such as "Fixes utf-8 decoding" as issue `UTF-8`. `#N` references still match anywhere; team keys must be uppercase on their own line.
 - **Unknown commands:** a root `NoArgs` validator made `commit comit` print help and exit 0. Removing it lets Cobra report `unknown command` with suggestions and exit 1.
+- **Check before sending/prompting:** workflows are split into read-only inspection and generation. "Generating…" is printed, and the PR issue prompt shown, only after local and GitHub checks pass, so a user never types issues or sees a send notice for a run that fails on a missing branch, base ref, or staged change.
 - **Test isolation:** CLI configuration tests now unset all provider/config environment variables with cleanup restoring their original values and presence. A private default config directory prevents reading the developer's configuration. Tests also run under deliberately conflicting dummy environment values.
 
 ## Compatibility

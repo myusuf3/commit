@@ -53,6 +53,7 @@ commit completion bash          # also zsh, fish, powershell
 
 ### Behavior and safety
 
+- **Check before sending.** Local and GitHub checks (repository, staged changes, branch, base ref, origin, existing PR) run before anything is sent to the provider, and before the interactive issue prompt, which shows the links a blank answer keeps and asks again on invalid input.
 - **Preview before mutation.** Both commit and PR operations show generated content first. Blank confirmation means **no**. PR approval covers the displayed push and create/update plan. `--auto-accept` skips all prompts, including optional issue entry.
 - **Non-interactive use is explicit.** Without a terminal, use `--auto-accept` or `--dry-run`. EOF cancels instead of accepting or looping forever.
 - **Dry run does not commit, push, modify PRs, fetch refs, or launch a browser.** It still queries APIs/Git remotes and sends the diff to the configured AI service; normal API billing applies.

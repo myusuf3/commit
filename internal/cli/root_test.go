@@ -18,24 +18,30 @@ type fixtures struct {
 	pushes, commits, creates, updates, calls int
 	remoteHead                               string
 	existing                                 *app.PullRequest
-	generationErr                            error
+	generationErr, inspectErr                error
+	generations                              int
 }
 
-func (f *fixtures) StagedDiff(context.Context) (string, error) { f.calls++; return "diff", nil }
-func (f *fixtures) Commit(context.Context, string) error       { f.commits++; return nil }
-func (f *fixtures) Head(context.Context) (string, error)       { return "head", nil }
-func (f *fixtures) HeadRef(context.Context) (string, error)    { return "refs/heads/feature", nil }
-func (f *fixtures) Branch(context.Context) (string, error)     { return "feature", nil }
+func (f *fixtures) StagedDiff(context.Context) (string, error) {
+	f.calls++
+	return "diff", f.inspectErr
+}
+func (f *fixtures) Commit(context.Context, string) error    { f.commits++; return nil }
+func (f *fixtures) Head(context.Context) (string, error)    { return "head", nil }
+func (f *fixtures) HeadRef(context.Context) (string, error) { return "refs/heads/feature", nil }
+func (f *fixtures) Branch(context.Context) (string, error)  { return "feature", nil }
 func (f *fixtures) RemoteURL(context.Context) (string, error) {
 	return "https://github.com/person/repo", nil
 }
-func (f *fixtures) BranchDiff(context.Context, string) (string, error) { return "diff", nil }
+func (f *fixtures) BranchDiff(context.Context, string) (string, error) { return "diff", f.inspectErr }
 func (f *fixtures) RemoteHead(context.Context, string) (string, error) { return f.remoteHead, nil }
 func (f *fixtures) Push(context.Context, string) error                 { f.pushes++; f.remoteHead = "head"; return nil }
 func (f *fixtures) CommitMessage(context.Context, string) (string, error) {
+	f.generations++
 	return "feat: change", f.generationErr
 }
 func (f *fixtures) PullRequest(context.Context, string) (app.PullRequest, error) {
+	f.generations++
 	return app.PullRequest{Title: "Change", Body: "Summary"}, f.generationErr
 }
 func (f *fixtures) DefaultBranch(context.Context) (string, error) { return "main", nil }
@@ -208,5 +214,44 @@ func TestUnknownCommandFails(t *testing.T) {
 	root.SetArgs(nil)
 	if err := root.Execute(); err != nil {
 		t.Fatalf("bare command: %v", err)
+	}
+}
+
+// Local and GitHub problems must surface before the user is prompted or told
+// that anything is being sent to the provider.
+func TestInspectionFailsBeforePromptOrGeneration(t *testing.T) {
+	for _, command := range []string{"commit", "pr"} {
+		t.Run(command, func(t *testing.T) {
+			f := &fixtures{inspectErr: errors.New("nothing to send")}
+			var stderr bytes.Buffer
+			root := NewRoot(options(f, "OPS-1\ny\n", true, io.Discard, &stderr))
+			root.SetArgs([]string{command})
+			if err := root.Execute(); err == nil || err.Error() != "nothing to send" {
+				t.Fatalf("err=%v", err)
+			}
+			if f.generations != 0 || strings.Contains(stderr.String(), "Generating") || strings.Contains(stderr.String(), "Related issues") {
+				t.Fatalf("prompted or generated before inspection failed: %q", stderr.String())
+			}
+		})
+	}
+}
+
+func TestIssuePromptShowsKeptLinksAndRetriesInvalidInput(t *testing.T) {
+	f := &fixtures{existing: &app.PullRequest{Number: 7, Body: "Closes OPS-42"}, remoteHead: "head"}
+	var out, stderr bytes.Buffer
+	root := NewRoot(options(f, "not an issue!\nENG-5\ny\n", true, &out, &stderr))
+	root.SetArgs([]string{"pr"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	prompts := strings.Count(stderr.String(), "Related issues (123, TEAM-456; blank keeps OPS-42): ")
+	if prompts != 2 || !strings.Contains(stderr.String(), "invalid issue") {
+		t.Fatalf("stderr=%q", stderr.String())
+	}
+	if f.updates != 1 || !strings.Contains(out.String(), "Closes ENG-5") || strings.Contains(out.String(), "OPS-42") {
+		t.Fatalf("out=%q", out.String())
+	}
+	if strings.Index(stderr.String(), "Related issues") > strings.Index(stderr.String(), "Generating") {
+		t.Fatal("prompted after generation started")
 	}
 }

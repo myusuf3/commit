@@ -27,6 +27,27 @@ func (s *commandState) confirm(prompt string, accept bool) (bool, error) {
 	return strings.EqualFold(answer, "y") || strings.EqualFold(answer, "yes"), nil
 }
 
+// promptIssues asks for related issues, showing what a blank answer keeps.
+// Invalid input is asked again rather than discarding the inspection.
+func (s *commandState) promptIssues(plan app.PRPlan) ([]string, error) {
+	keep := "no issue links"
+	if existing := plan.ExistingIssues(); len(existing) > 0 {
+		keep = strings.Join(existing, ", ")
+	}
+	prompt := fmt.Sprintf("Related issues (123, TEAM-456; blank keeps %s): ", keep)
+	for {
+		line, err := s.line(prompt)
+		if err != nil {
+			return nil, err
+		}
+		issues, err := app.ParseIssues([]string{line})
+		if err == nil {
+			return issues, nil
+		}
+		fmt.Fprintln(s.opts.Err, err)
+	}
+}
+
 func (s *commandState) commitCommand() *cobra.Command {
 	var accept, dryRun bool
 	cmd := &cobra.Command{Use: "commit", Short: "Generate a commit message from staged changes", Args: cobra.NoArgs,
@@ -38,8 +59,12 @@ func (s *commandState) commitCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			plan, err := service.InspectCommit(cmd.Context())
+			if err != nil {
+				return err
+			}
 			fmt.Fprintln(s.opts.Err, "Generating a commit message (staged diff is sent to the configured provider)...")
-			plan, err := service.PrepareCommit(cmd.Context())
+			plan, err = service.GenerateCommit(cmd.Context(), plan)
 			if err != nil {
 				return err
 			}
@@ -82,16 +107,6 @@ func (s *commandState) prCommand() *cobra.Command {
 			if cmd.Flags().Changed("issue") && len(issues) == 0 {
 				return errors.New("--issue was provided without a value; pass a GitHub number or TEAM-123, or omit the flag")
 			}
-			if !cmd.Flags().Changed("issue") && s.opts.Interactive && !accept && !dryRun {
-				line, err := s.line("Related issues (123, TEAM-456; blank keeps existing links): ")
-				if err != nil {
-					return err
-				}
-				issues, err = app.ParseIssues([]string{line})
-				if err != nil {
-					return err
-				}
-			}
 			c, service, err := s.service()
 			if err != nil {
 				return err
@@ -107,8 +122,19 @@ func (s *commandState) prCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// Every read-only check runs before prompting or sending the diff, so
+			// a missing branch, base ref, or origin fails before any typing.
+			plan, err := service.InspectPR(cmd.Context(), host)
+			if err != nil {
+				return err
+			}
+			if !cmd.Flags().Changed("issue") && s.opts.Interactive && !accept && !dryRun {
+				if issues, err = s.promptIssues(plan); err != nil {
+					return err
+				}
+			}
 			fmt.Fprintln(s.opts.Err, "Generating a pull request (committed branch diff is sent to the configured provider)...")
-			plan, err := service.PreparePR(cmd.Context(), host, issues, draft)
+			plan, err = service.GeneratePR(cmd.Context(), plan, issues, draft)
 			if err != nil {
 				return err
 			}
