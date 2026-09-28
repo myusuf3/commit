@@ -48,44 +48,52 @@ func (s *commandState) promptIssues(plan app.PRPlan) ([]string, error) {
 	}
 }
 
-func (s *commandState) commitCommand() *cobra.Command {
+// bindCommit makes cmd run the commit workflow. The root command uses it so
+// plain "commit" commits; the hidden "commit commit" alias keeps old scripts.
+func (s *commandState) bindCommit(cmd *cobra.Command) {
 	var accept, dryRun bool
-	cmd := &cobra.Command{Use: "commit", Short: "Generate a commit message from staged changes", Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := s.canRun(accept, dryRun); err != nil {
-				return err
-			}
-			_, service, err := s.service()
-			if err != nil {
-				return err
-			}
-			plan, err := service.InspectCommit(cmd.Context())
-			if err != nil {
-				return err
-			}
-			fmt.Fprintln(s.opts.Err, "Generating a commit message (staged diff is sent to the configured provider)...")
-			plan, err = service.GenerateCommit(cmd.Context(), plan)
-			if err != nil {
-				return err
-			}
-			if _, err := fmt.Fprintln(s.opts.Out, plan.Message); err != nil {
-				return err
-			}
-			if dryRun {
-				return nil
-			}
-			ok, err := s.confirm("Commit with this message?", accept)
-			if err != nil {
-				return err
-			}
-			if !ok {
-				fmt.Fprintln(s.opts.Err, "Commit cancelled.")
-				return nil
-			}
-			return service.Commit(cmd.Context(), plan)
-		}}
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if err := s.canRun(accept, dryRun); err != nil {
+			return err
+		}
+		_, service, err := s.service()
+		if err != nil {
+			return err
+		}
+		plan, err := service.InspectCommit(cmd.Context())
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(s.opts.Err, "Generating a commit message (staged diff is sent to the configured provider)...")
+		plan, err = service.GenerateCommit(cmd.Context(), plan)
+		if err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintln(s.opts.Out, plan.Message); err != nil {
+			return err
+		}
+		if dryRun {
+			return nil
+		}
+		ok, err := s.confirm("Commit with this message?", accept)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			fmt.Fprintln(s.opts.Err, "Commit cancelled.")
+			return nil
+		}
+		return service.Commit(cmd.Context(), plan)
+	}
 	cmd.Flags().BoolVarP(&accept, "auto-accept", "y", false, "Accept the generated commit without prompting")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Generate and print only; do not commit")
+}
+
+// commitCommand is the original "commit commit" spelling, kept working for
+// existing scripts but hidden from help and completion.
+func (s *commandState) commitCommand() *cobra.Command {
+	cmd := &cobra.Command{Use: "commit", Short: "Generate a commit message from staged changes (same as plain 'commit')", Args: cobra.NoArgs, Hidden: true}
+	s.bindCommit(cmd)
 	return cmd
 }
 

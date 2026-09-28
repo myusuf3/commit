@@ -86,11 +86,24 @@ func NewRoot(opts Options) *cobra.Command {
 	}
 	s := &commandState{opts: opts, reader: bufio.NewReader(opts.In), ctx: context.Background()}
 	root := &cobra.Command{
-		Use: "commit", Short: "AI-powered Git commit and pull request assistant",
+		Use:   "commit",
+		Short: "AI-powered Git commit and pull request assistant",
+		Long: `Generate a commit message from your staged changes, review it, and commit.
+Subcommands create or update GitHub pull requests and manage configuration.
+
+The staged diff (or, for pr, the committed branch diff) is sent to the
+configured AI provider. Nothing is committed, pushed, or changed on GitHub
+without confirmation unless --auto-accept is given.`,
+		Example: `  git add -p && commit     Review a generated message, then commit
+  commit -y                Commit without prompting
+  commit --dry-run         Print the message only
+  commit pr                Create or update the pull request for this branch
+  commit pr -d -i 123      Draft PR that fixes issue #123`,
 		SilenceErrors: true, SilenceUsage: true, Version: opts.Build.Version,
 		// No Args validator: Cobra then reports unknown subcommands as errors
-		// (with suggestions) instead of printing help and exiting successfully.
+		// (with suggestions) instead of treating them as arguments.
 	}
+	s.bindCommit(root)
 	root.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		s.ctx = cmd.Context()
 		return s.ctx.Err()

@@ -25,8 +25,8 @@ commit init
 
 # Review staged changes, generate a message, then confirm the commit:
 git add path/to/file
-commit commit
-commit commit --auto-accept      # -y
+commit
+commit --auto-accept             # -y
 
 # Create or update a PR for the current branch:
 git fetch origin
@@ -41,13 +41,13 @@ commit update --check            # -c
 commit update --force            # -f
 ```
 
-The original command names, flags, and short options are preserved; the executable is named `commit`. The `commit commit` spelling is intentional. Additional options are additive:
+Plain `commit` is the commit workflow; `commit --help` shows help. The original command names, flags, and short options are preserved: the earlier `commit commit` spelling still works (with the same flags) for existing scripts but is hidden from help. Additional options are additive:
 
 ```sh
-commit commit --dry-run > message.txt
+commit --dry-run > message.txt
 commit pr --dry-run --issue OPS-42 > pull-request.md
 commit pr --no-browser
-commit --config /path/to/config commit
+commit --config /path/to/config
 commit completion bash          # also zsh, fish, powershell
 ```
 

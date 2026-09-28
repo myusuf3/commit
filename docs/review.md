@@ -71,13 +71,14 @@ Reviewing the new implementation again surfaced issues introduced by the redesig
 - **Interrupts:** Ctrl-C/SIGTERM printed `Error: context canceled` and exited 1. They now print `Interrupted.`/`Terminated.` and exit 130/143, preserving extra context (for example after a push), and a second Ctrl-C exits immediately.
 - **Silent upstream change:** every push used `-u`, carried over from the initial implementation without a stated reason (it is the common first-push idiom). It silently replaced deliberate upstreams, such as `origin/main` on a branch created with `--track` or from `origin/main` (the default `branch.autoSetupMerge` behavior), changing what `git pull` and `git status` compare against. Now `--set-upstream` is passed only when the branch has no upstream, the plan discloses it (or notes that an existing upstream is kept), and a changed upstream between review and apply aborts.
 - **HTTP error guidance:** errors read `API returned HTTP 401` without saying whether the provider or GitHub failed. OpenAI's `insufficient_quota` 429 was labeled "rate limited, try again later", and 404s, redirects (renamed repositories), and timeouts were vague or reported as connectivity problems. Errors are now typed in `httpapi` and explained per adapter with the service, host, safe error code, and fix. GitHub's own sanitized, bounded message is shown. Provider message text is still never reflected.
+- **Command stutter:** because the executable and its main action shared a name, committing was `commit commit`, and plain `commit` only printed help. Plain `commit` (with `-y`/`--dry-run`) now commits, root help gains a description and examples, and `commit commit` is a hidden alias. Unknown commands still fail with suggestions. Staged changes are still only sent after local checks pass, and nothing is committed without confirmation.
 - **Test isolation:** CLI configuration tests now unset all provider/config environment variables with cleanup restoring their original values and presence. A private default config directory prevents reading the developer's configuration. Tests also run under deliberately conflicting dummy environment values.
 
 ## Compatibility
 
 Preserved command names: `commit`, `pr`, `init`, `version`, `update`.
 Preserved flags: `--auto-accept/-y`, `--issue/-i`, `--draft/-d`, `--check/-c`, `--force/-f`.
-The executable is now `commit`; `commit commit` is intentional.
+The executable is now `commit`. Plain `commit` runs the commit workflow; the earlier `commit commit` spelling remains as a hidden alias with the same flags, so existing scripts keep working.
 
 Additions: `--config`, `--dry-run`, `--no-browser`, root `--version`, shell completion.
 

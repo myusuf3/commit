@@ -216,9 +216,53 @@ func TestUnknownCommandFails(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 	root = NewRoot(Options{Out: io.Discard, Err: io.Discard})
+	root.SetArgs([]string{"pt"})
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "Did you mean this?\n\tpr") {
+		t.Fatalf("suggestion: %v", err)
+	}
+}
+
+// Plain "commit" is the commit workflow. "commit commit" still works for
+// existing scripts but is hidden from help.
+func TestPlainCommitAndHiddenAlias(t *testing.T) {
+	for _, args := range [][]string{{"--dry-run"}, {"-y"}, {"commit", "--dry-run"}, {"commit", "-y"}} {
+		f := &fixtures{}
+		var out bytes.Buffer
+		root := NewRoot(options(f, "", false, &out, io.Discard))
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		want := 0
+		if args[len(args)-1] == "-y" {
+			want = 1
+		}
+		if !strings.Contains(out.String(), "feat: change") || f.commits != want {
+			t.Fatalf("%v: out=%q commits=%d", args, out.String(), f.commits)
+		}
+	}
+	// Bare "commit" without a terminal must refuse rather than commit.
+	f := &fixtures{}
+	root := NewRoot(options(f, "", false, io.Discard, io.Discard))
 	root.SetArgs(nil)
+	if err := root.Execute(); err == nil || f.generations+f.commits != 0 {
+		t.Fatalf("bare non-interactive: err=%v", err)
+	}
+	var help bytes.Buffer
+	root = NewRoot(Options{Out: &help, Err: io.Discard})
+	root.SetArgs([]string{"--help"})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("bare command: %v", err)
+		t.Fatal(err)
+	}
+	if strings.Contains(help.String(), "\n  commit      ") || !strings.Contains(help.String(), "commit [flags]") || !strings.Contains(help.String(), "--dry-run") {
+		t.Fatalf("help=%s", help.String())
+	}
+	// Interactive bare "commit" prompts and commits on yes.
+	f = &fixtures{}
+	root = NewRoot(options(f, "y\n", true, io.Discard, io.Discard))
+	root.SetArgs(nil)
+	if err := root.Execute(); err != nil || f.commits != 1 {
+		t.Fatalf("interactive: err=%v commits=%d", err, f.commits)
 	}
 }
 
