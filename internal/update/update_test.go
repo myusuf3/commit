@@ -166,3 +166,15 @@ func TestCheckUsesConfiguredRepositoryAndRequiresChecksum(t *testing.T) {
 		t.Fatal("implicit release destination")
 	}
 }
+
+func TestCheckReportsLatestForDevelopmentBuild(t *testing.T) {
+	c := &Client{Repository: "person/commit", Current: "dev", HTTP: &http.Client{Transport: roundTrip(func(r *http.Request) (*http.Response, error) {
+		b, _ := json.Marshal(Release{Tag: "v1.2.0"})
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(b)), Header: make(http.Header)}, nil
+	})}}
+	_, err := c.Check(context.Background(), false)
+	var dev *DevelopmentBuildError
+	if !errors.As(err, &dev) || dev.Latest != "v1.2.0" || !errors.Is(err, ErrDevelopmentBuild) || !strings.Contains(err.Error(), "latest release is v1.2.0") {
+		t.Fatalf("err=%v", err)
+	}
+}

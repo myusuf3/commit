@@ -50,6 +50,20 @@ type Asset struct {
 
 type Plan struct{ Version, ArchiveURL, ChecksumURL, ArchiveName string }
 
+// ErrDevelopmentBuild means the running binary has no release version, so it
+// cannot be compared with a release and is replaced only with --force.
+var ErrDevelopmentBuild = errors.New("development build; use --force to replace it with a published release")
+
+// DevelopmentBuildError reports the latest release found for a development
+// build. It matches ErrDevelopmentBuild with errors.Is.
+type DevelopmentBuildError struct{ Latest string }
+
+func (e *DevelopmentBuildError) Error() string {
+	return fmt.Sprintf("this is a development build; the latest release is %s. Use --force to replace it", e.Latest)
+}
+
+func (e *DevelopmentBuildError) Is(target error) bool { return target == ErrDevelopmentBuild }
+
 func Newer(current, latest string, force bool) (bool, error) {
 	lv, err := version.NewSemver(latest)
 	if err != nil {
@@ -59,7 +73,7 @@ func Newer(current, latest string, force bool) (bool, error) {
 		if force {
 			return true, nil
 		}
-		return false, errors.New("development build; use --force to replace it with a published release")
+		return false, ErrDevelopmentBuild
 	}
 	cv, err := version.NewSemver(current)
 	if err != nil {
@@ -95,6 +109,9 @@ func (c *Client) Check(ctx context.Context, force bool) (*Plan, error) {
 		return nil, errors.New("refusing an unpublished or prerelease update")
 	}
 	newer, err := Newer(c.Current, release.Tag, force)
+	if errors.Is(err, ErrDevelopmentBuild) {
+		return nil, &DevelopmentBuildError{Latest: release.Tag}
+	}
 	if err != nil || !newer {
 		return nil, err
 	}
