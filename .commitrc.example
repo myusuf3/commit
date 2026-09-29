@@ -17,7 +17,7 @@ base_url = "https://api.openai.com/v1"
 timeout = "60s"
 max_diff_bytes = 100000
 # github_token = "..."            # or GITHUB_TOKEN / COMMIT_GITHUB_TOKEN
-# release_repository = "owner/repo" # configure only after publishing
+# release_repository = "owner/repo" # default: myusuf3/commit
 
 [conventional]
 type_scope_prefix = true

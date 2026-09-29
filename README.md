@@ -92,7 +92,7 @@ max_diff_bytes = 100000
 # api_key = "..."
 # github_token = "..."
 
-# Set only after publishing releases to a repository you trust.
+# Where "commit update" looks for releases (default: myusuf3/commit).
 # release_repository = "owner/repo"
 
 [conventional]
@@ -113,7 +113,7 @@ Environment variables override file settings:
 | `COMMIT_API_FORMAT` | `chat-completions`, `messages`, or `responses` |
 | `COMMIT_MODEL` | Model |
 | `COMMIT_BASE_URL` | OpenAI-compatible API base URL |
-| `COMMIT_RELEASE_REPOSITORY` | Explicit update source, `owner/repo` |
+| `COMMIT_RELEASE_REPOSITORY` | Update source, `owner/repo` (default `myusuf3/commit`) |
 
 An explicitly empty credential environment variable clears the file value. GitHub credentials are required only for PR operations, not for commit generation or initialization. Git pushes use Git's own SSH/credential-helper authentication. Initialization does not copy environment credentials into the file, hides typed secrets on terminals, and writes the config with mode `0600` (directory `0700`; Windows uses its native permission semantics). Existing files and symlinks are never overwritten.
 
@@ -150,7 +150,7 @@ Using the wrong format for a model fails with a clear error rather than silently
 
 ## Updates and releases
 
-`commit update` retains its command interface but intentionally has no default upstream. Set `release_repository` or `COMMIT_RELEASE_REPOSITORY` after trusted releases are published. `--check` only reports availability; `--force` permits replacing a dev build or reinstalling the latest release (including a downgrade from a newer build).
+`commit update` installs the latest release of `myusuf3/commit`. Point `release_repository` or `COMMIT_RELEASE_REPOSITORY` at another `owner/repo` (for example a fork) to use its releases instead; an empty value falls back to the default, because earlier `commit init` versions wrote `release_repository = ""`. It only runs when invoked. `--check` reports availability; on a development build (`go run`, or `go install` without release metadata) it reports the latest release instead of comparing versions. `--force` permits replacing a dev build or reinstalling the latest release (including a downgrade from a newer build).
 
 The updater requires `commit_<os>_<arch>.tar.gz` (`.zip` on Windows) and `checksums.txt`. SHA-256 verification is mandatory. Archives, responses, and extracted binaries are bounded; only the exact binary entry is accepted. On macOS/Linux, a same-directory temporary binary must execute `version` successfully before atomic replacement. Failure before replacement leaves the old executable untouched. On Windows, use `--check` and install the archive manually because a running executable cannot safely replace itself.
 

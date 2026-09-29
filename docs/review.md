@@ -22,7 +22,7 @@ This is a separate implementation with the same command interface, not an in-pla
 | Git errors conflated with missing remote branches; stale tracking refs used for push detection | Real `ls-remote` query, explicit error propagation, current remote SHA comparison |
 | Remote URL parsing accepted host substrings | Exact host/scheme checks and strict two-component repository paths |
 | No check that generated metadata still matched Git state | Recheck symbolic HEAD/hash/index diff for commits, or branch/HEAD/origin for PRs, before applying |
-| Automatic update checks on ordinary commands and a baked-in release source | Explicit `update` command and configured trusted source only |
+| Automatic update checks on ordinary commands and a baked-in release source | Explicit `update` command only; it defaults to this project's own `myusuf3/commit` releases and can be pointed elsewhere |
 | `--force` existed but was ineffective | Implemented forced reinstall/dev-build replacement |
 | Checksums optional; executable verification only checked file mode | Mandatory checksum, bounded exact-entry extraction, actual `version` execution, atomic replacement on Unix |
 | Some tests duplicated production logic instead of exercising it | Actual adapters tested with temporary repositories/local HTTP servers; workflows tested through public methods/commands |
@@ -72,6 +72,7 @@ Reviewing the new implementation again surfaced issues introduced by the redesig
 - **Silent upstream change:** every push used `-u`, carried over from the initial implementation without a stated reason (it is the common first-push idiom). It silently replaced deliberate upstreams, such as `origin/main` on a branch created with `--track` or from `origin/main` (the default `branch.autoSetupMerge` behavior), changing what `git pull` and `git status` compare against. Now `--set-upstream` is passed only when the branch has no upstream, the plan discloses it (or notes that an existing upstream is kept), and a changed upstream between review and apply aborts.
 - **HTTP error guidance:** errors read `API returned HTTP 401` without saying whether the provider or GitHub failed. OpenAI's `insufficient_quota` 429 was labeled "rate limited, try again later", and 404s, redirects (renamed repositories), and timeouts were vague or reported as connectivity problems. Errors are now typed in `httpapi` and explained per adapter with the service, host, safe error code, and fix. GitHub's own sanitized, bounded message is shown. Provider message text is still never reflected.
 - **Command stutter:** because the executable and its main action shared a name, committing was `commit commit`, and plain `commit` only printed help. Plain `commit` (with `-y`/`--dry-run`) now commits, root help gains a description and examples, and `commit commit` is a hidden alias. Unknown commands still fail with suggestions. Staged changes are still only sent after local checks pass, and nothing is committed without confirmation.
+- **Update defaults:** `commit update` failed with "no release repository configured" even after v0.1.0 was published, including for configs from earlier `init` versions that wrote `release_repository = ""`. It now defaults to `myusuf3/commit` (an empty value means unset). `--check` on a development build reports the latest release instead of erroring.
 - **Test isolation:** CLI configuration tests now unset all provider/config environment variables with cleanup restoring their original values and presence. A private default config directory prevents reading the developer's configuration. Tests also run under deliberately conflicting dummy environment values.
 
 ## Compatibility
@@ -86,7 +87,7 @@ Deliberate safety changes: blank mutation confirmations decline; redirected inpu
 
 ## Boundaries and remaining limitations
 
-- The module identity is `github.com/myusuf3/commit`. Update source configuration remains explicit; unconfigured update returns an actionable error rather than contacting a publisher automatically.
+- The module identity is `github.com/myusuf3/commit`. Now that releases are published there, `commit update` defaults to `myusuf3/commit`, overridable by config or environment. It still contacts GitHub only when the command is run.
 - CLI compatibility means names/flags and workflows, not byte-for-byte terminal output.
 - PRs target the default branch on `origin` at github.com. Users fetch their base refs explicitly. Fork PRs, alternative remotes, custom bases, and Enterprise need future work.
 - Existing PR title/body regeneration replaces human edits after review. Only recognized issue-closing lines are retained automatically; `--draft` does not convert existing PRs.

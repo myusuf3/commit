@@ -13,4 +13,4 @@ Use Go 1.26+ and Git. Run `make check` and `make build` before submitting change
 - Do not hardcode organization names, repository owners, or team-specific issue prefixes.
 - Never include real credentials in fixtures, docs, or sample config.
 
-Releases are opt-in. From a checkout of `github.com/myusuf3/commit`, tag a release and run GoReleaser. Review the draft release before publishing it. Configure `release_repository` only after a trusted public release exists.
+Releases are opt-in. From a checkout of `github.com/myusuf3/commit`, tag a release and run GoReleaser. Review the draft release before publishing it: `commit update` installs whatever is published as the latest release of `myusuf3/commit`.
