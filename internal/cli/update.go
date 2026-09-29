@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/myusuf3/commit/internal/httpapi"
@@ -20,8 +21,19 @@ func (s *commandState) updateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			client := &update.Client{HTTP: httpapi.NewClient(d), Repository: c.ReleaseRepository, Token: c.GitHubToken, Current: s.opts.Build.Version}
+			httpClient := httpapi.NewClient(d)
+			if s.opts.UpdateTransport != nil {
+				httpClient.Transport = s.opts.UpdateTransport
+			}
+			client := &update.Client{HTTP: httpClient, Repository: c.ReleaseRepository, Token: c.GitHubToken, Current: s.opts.Build.Version}
 			plan, err := client.Check(cmd.Context(), force)
+			// A development build cannot be compared, but --check can still
+			// report what the latest release is.
+			var dev *update.DevelopmentBuildError
+			if check && errors.As(err, &dev) {
+				_, err = fmt.Fprintf(s.opts.Out, "Latest release: %s (current: development build). Run 'commit update --force' to install it.\n", dev.Latest)
+				return err
+			}
 			if err != nil {
 				return err
 			}

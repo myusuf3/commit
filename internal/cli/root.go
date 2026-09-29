@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"runtime"
@@ -34,6 +35,8 @@ type Options struct {
 	NewGenerator func(config.Config) app.Generator
 	NewHosting   func(config.Config, string) (app.Hosting, error)
 	OpenBrowser  func(context.Context, string) error
+	// UpdateTransport replaces the update command's HTTP transport (tests).
+	UpdateTransport http.RoundTripper
 }
 
 type commandState struct {
