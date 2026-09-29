@@ -92,7 +92,7 @@ func ArchiveName() string {
 
 func (c *Client) Check(ctx context.Context, force bool) (*Plan, error) {
 	if c.Repository == "" {
-		return nil, errors.New("no release repository configured; set release_repository = \"owner/repo\" or COMMIT_RELEASE_REPOSITORY after publishing this app")
+		return nil, errors.New("no release repository configured; set release_repository = \"owner/repo\" or COMMIT_RELEASE_REPOSITORY")
 	}
 	if err := github.ValidateRepository(c.Repository); err != nil {
 		return nil, err

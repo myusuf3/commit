@@ -148,3 +148,36 @@ func TestWriteRefusesSymlink(t *testing.T) {
 		t.Fatal("modified symlink target")
 	}
 }
+
+func TestReleaseRepositoryDefault(t *testing.T) {
+	for _, tc := range []struct {
+		name, file, env string
+		setEnv          bool
+		want            string
+	}{
+		{name: "no file", want: DefaultReleaseRepository},
+		// Earlier init versions wrote an explicit empty value into every config.
+		{name: "empty in file", file: "release_repository = \"\"\n", want: DefaultReleaseRepository},
+		{name: "file override", file: "release_repository = \"me/fork\"\n", want: "me/fork"},
+		{name: "env override", file: "release_repository = \"me/fork\"\n", env: "org/tool", setEnv: true, want: "org/tool"},
+		{name: "empty env", env: "", setEnv: true, want: DefaultReleaseRepository},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cleanEnv(t)
+			path := ""
+			if tc.file != "" {
+				path = filepath.Join(t.TempDir(), "config")
+				if err := os.WriteFile(path, []byte(tc.file), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.setEnv {
+				t.Setenv("COMMIT_RELEASE_REPOSITORY", tc.env)
+			}
+			c, err := Load(path)
+			if err != nil || c.ReleaseRepository != tc.want {
+				t.Fatalf("release repository=%q err=%v", c.ReleaseRepository, err)
+			}
+		})
+	}
+}

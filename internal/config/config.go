@@ -30,8 +30,12 @@ type Config struct {
 	} `toml:"conventional"`
 }
 
+// DefaultReleaseRepository is where this project publishes releases. It is used
+// only by the explicit "update" command; nothing checks for updates on its own.
+const DefaultReleaseRepository = "myusuf3/commit"
+
 func Default() Config {
-	c := Config{Provider: "openai", Model: "gpt-4o-mini", BaseURL: "https://api.openai.com/v1", Timeout: "60s", MaxDiffBytes: 100000}
+	c := Config{Provider: "openai", Model: "gpt-4o-mini", BaseURL: "https://api.openai.com/v1", Timeout: "60s", MaxDiffBytes: 100000, ReleaseRepository: DefaultReleaseRepository}
 	c.Conventional.TypeScopePrefix = true
 	return c
 }
@@ -114,6 +118,11 @@ func Load(explicit string) (Config, error) {
 		if v, ok := os.LookupEnv(env.key); ok {
 			*env.dst = v
 		}
+	}
+	// Earlier "commit init" versions wrote release_repository = "" into every
+	// config, so an empty value means "not set" rather than "disabled".
+	if strings.TrimSpace(c.ReleaseRepository) == "" {
+		c.ReleaseRepository = DefaultReleaseRepository
 	}
 	return c, nil
 }
